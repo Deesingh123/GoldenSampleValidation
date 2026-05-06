@@ -506,34 +506,34 @@ def create_urgency_chart(df):
 def main():
     # Header
     st.markdown('<div class="main-header"><h1 style="color:white;">🏭 Golden Sample Revalidation Tracker</h1></div>', unsafe_allow_html=True)
-    
+   
     # Load data
     with st.spinner("Loading data..."):
         df_raw = fetch_data()
         df = process_data(df_raw)
-    
+   
     if df is None or df.empty:
         st.error("No valid data available.")
         st.info("Required: 'Validation Date', 'Staus', 'Model' | Format: DD-MM-YYYY")
         return
-    
+   
     st.session_state.df = df
-    
+   
     # Auto email check
     auto_sent, auto_msg = check_and_send_auto_email(df)
     if auto_sent:
         st.toast(auto_msg, icon="✅")
-    
+   
     # Compact Metrics Row
     col1, col2, col3, col4, col5, col6 = st.columns(6)
-    
+   
     total = len(df)
     ok_count = len(df[df['Staus'].str.lower() == 'ok'])
     pending_count = len(df[df['Staus'].str.lower() == 'pending'])
     ng_count = len(df[df['Staus'].str.lower() == 'ng'])
     urgent_count = len(get_due_records(df))
     overdue_count = len(get_overdue_records(df))
-    
+   
     with col1:
         st.markdown(f'<div class="metric-card"><div class="metric-value">{total}</div><div class="metric-label">Total</div></div>', unsafe_allow_html=True)
     with col2:
@@ -546,44 +546,33 @@ def main():
         st.markdown(f'<div class="metric-card"><div class="metric-value" style="color:#ef4444;">{urgent_count}</div><div class="metric-label">🔴 Urgent</div></div>', unsafe_allow_html=True)
     with col6:
         st.markdown(f'<div class="metric-card"><div class="metric-value" style="color:#dc2626;">{overdue_count}</div><div class="metric-label">⚠️ Overdue</div></div>', unsafe_allow_html=True)
-    
-    # Charts Row (Compact)
+   
+    # Charts Row
     col_chart1, col_chart2 = st.columns(2)
     with col_chart1:
         st.plotly_chart(create_status_chart(df), use_container_width=True, config={'displayModeBar': False})
     with col_chart2:
         st.plotly_chart(create_urgency_chart(df), use_container_width=True, config={'displayModeBar': False})
-    
-    # Control Bar - Filters, Search, Export on Top
+   
     st.markdown("### 📋 Sample Details")
-    
-    # Control Row (Top)
+   
+    # Control Row
     control_cols = st.columns([1.5, 1.5, 2, 1, 1, 1])
-    
+   
     with control_cols[0]:
-        # Changed from multiselect to selectbox (dropdown)
-        status_filter = st.selectbox(
-            "Status",
-            options=['All', 'Ok', 'Pending', 'Ng'],
-            index=0,
-            key="status_filter"
-        )
-    
+        status_filter = st.selectbox("Status", options=['All', 'Ok', 'Pending', 'Ng'], index=0, key="status_filter")
+   
     with control_cols[1]:
-        urgency_filter = st.selectbox(
-            "Urgency",
-            options=['All', 'Overdue', 'Urgent', 'Due Soon', 'On Track'],
-            key="urgency_filter"
-        )
-    
+        urgency_filter = st.selectbox("Urgency", options=['All', 'Overdue', 'Urgent', 'Due Soon', 'On Track'], key="urgency_filter")
+   
     with control_cols[2]:
         search_model = st.text_input("🔍 Search Model", placeholder="Enter model name...", key="search_model")
-    
+   
     with control_cols[3]:
         if st.button("📥 Export CSV", use_container_width=True, key="export_btn"):
             csv = df.to_csv(index=False)
             st.download_button("Download", csv, f"report_{datetime.now().strftime('%Y%m%d')}.csv", "text/csv", key="download_btn")
-    
+   
     with control_cols[4]:
         if st.button("📧 Send Alert", use_container_width=True, key="alert_btn"):
             with st.spinner("Sending..."):
@@ -592,18 +581,18 @@ def main():
                     st.success(msg)
                 else:
                     st.error(msg)
-    
+   
     with control_cols[5]:
         if st.button("🔄 Refresh", use_container_width=True, key="refresh_btn"):
             st.cache_data.clear()
             st.rerun()
-  
-    # Apply filters
+ 
+    # ================== FILTERING ==================
     if status_filter == 'All':
         filtered_df = df.copy()
     else:
         filtered_df = df[df['Staus'] == status_filter]
-    
+   
     if urgency_filter == 'Overdue':
         filtered_df = filtered_df[filtered_df['Days Left'] < 0]
     elif urgency_filter == 'Urgent':
@@ -612,42 +601,52 @@ def main():
         filtered_df = filtered_df[(filtered_df['Days Left'] <= 7) & (filtered_df['Days Left'] > 3)]
     elif urgency_filter == 'On Track':
         filtered_df = filtered_df[filtered_df['Days Left'] > 7]
-    
+   
     if search_model:
         filtered_df = filtered_df[filtered_df['Model'].str.contains(search_model, case=False, na=False)]
-    
-    # Clean data
-    filtered_df = filtered_df.dropna(subset=['Model', 'Staus'])
+   
+    # Clean
+    filtered_df = filtered_df.dropna(subset=['Model', 'Staus']).copy()
     filtered_df = filtered_df[filtered_df['Model'].astype(str).str.strip() != '']
+
+    # ================== DISPLAY TABLE ==================
+    display_cols = ['Model', 'Validation Date Display', 'Revalidation Due Display', 
+                   'Days Left', 'Staus', 'Incharge', 'Alert Status']
+    display_df = filtered_df[display_cols].copy()
     
-    # Display table with NG showing blank for Days Left
-    display_df = filtered_df[['Model', 'Validation Date Display', 'Revalidation Due Display', 'Days Left', 'Staus', 'Incharge', 'Alert Status']].copy()
+    # Fill NaN
     display_df = display_df.fillna('-')
     
-    # For NG status, set Days Left to blank
+    # FIXED: Better way to format Days Left
     def format_days_left(row):
-        if row['Staus'].lower() == 'ng':
+        if str(row['Staus']).lower() == 'ng':
             return '-'
-        elif row['Days Left'] != '-' and pd.notna(row['Days Left']):
-            return f"{int(row['Days Left'])}d"
-        return '-'
+        try:
+            days = float(row['Days Left'])
+            if pd.isna(days):
+                return '-'
+            return f"{int(days)}d"
+        except:
+            return '-'
     
+    # Apply formatting safely
     display_df['Days Left'] = display_df.apply(format_days_left, axis=1)
-    
-    # Styling function
+
+    # Styling
     def style_status(val):
-        if val.lower() == 'ok':
+        val = str(val).lower()
+        if val == 'ok':
             return 'background-color: #d1fae5; color: #065f46; font-weight: 600; border-radius: 20px; padding: 2px 8px; display: inline-block;'
-        elif val.lower() == 'pending':
+        elif val == 'pending':
             return 'background-color: #fed7aa; color: #92400e; font-weight: 600; border-radius: 20px; padding: 2px 8px; display: inline-block;'
-        elif val.lower() == 'ng':
+        elif val == 'ng':
             return 'background-color: #fee2e2; color: #991b1b; font-weight: 600; border-radius: 20px; padding: 2px 8px; display: inline-block;'
         return ''
-    
+
     def style_days(val):
         if val != '-':
             try:
-                days = int(val.replace('d', ''))
+                days = int(str(val).replace('d', ''))
                 if days < 0:
                     return 'background-color: #fee2e2; color: #991b1b; font-weight: 600;'
                 elif days <= 3:
@@ -655,15 +654,13 @@ def main():
             except:
                 pass
         return ''
-    
-    # Apply styling
+
     styled_df = display_df.style.applymap(style_status, subset=['Staus'])
     styled_df = styled_df.applymap(style_days, subset=['Days Left'])
-    
-    # Table with shortened height
+
     st.dataframe(styled_df, use_container_width=True, height=400)
-    
-    # Settings Expander
+
+    # Settings
     with st.expander("⚙️ Email Settings"):
         col_set1, col_set2 = st.columns(2)
         with col_set1:
@@ -671,7 +668,8 @@ def main():
             if new_primary != st.session_state.primary_recipient:
                 st.session_state.primary_recipient = new_primary
         with col_set2:
-            cc_text = st.text_area("CC Recipients (one per line)", value="\n".join(st.session_state.cc_recipients), height=80)
+            cc_text = st.text_area("CC Recipients (one per line)", 
+                                 value="\n".join(st.session_state.cc_recipients), height=80)
             if st.button("💾 Save Settings"):
                 st.session_state.cc_recipients = [e.strip() for e in cc_text.split("\n") if e.strip()]
                 st.success("Settings saved!")
