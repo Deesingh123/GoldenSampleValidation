@@ -17,13 +17,12 @@ CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSOERBZB4TXUBp_QmForD
 
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
-SENDER_EMAIL = "rajgopalr.padget@dixoninfo.com"
-SENDER_PASSWORD = "gzxzuolbmqkdhcst"
+SENDER_EMAIL = "chauhandeesingh@gmail.com"
+SENDER_PASSWORD = "empxwcwfvmbphvsw"
 
 PRIMARY_RECIPIENT = "emurugesan.padget@dixoninfo.com"
 CC_RECIPIENTS = [
     "chauhandeesingh@gmail.com",
-    "rajgopal.padget@dixoninfo.com",
 ]
 
 # Auto email settings
