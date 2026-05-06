@@ -507,10 +507,34 @@ def create_urgency_chart(df):
     return fig
 
 
+# Styling Functions
+def style_status(val):
+    val = str(val).lower().strip()
+    if val == 'ok':
+        return 'background-color: #d1fae5; color: #065f46; font-weight: 600; border-radius: 20px; padding: 2px 8px; display: inline-block;'
+    elif val == 'pending':
+        return 'background-color: #fed7aa; color: #92400e; font-weight: 600; border-radius: 20px; padding: 2px 8px; display: inline-block;'
+    elif val == 'ng':
+        return 'background-color: #fee2e2; color: #991b1b; font-weight: 600; border-radius: 20px; padding: 2px 8px; display: inline-block;'
+    return ''
+
+def style_days(val):
+    if val != '-':
+        try:
+            days = int(str(val).replace('d', ''))
+            if days < 0:
+                return 'background-color: #fee2e2; color: #991b1b; font-weight: 600;'
+            elif days <= 3:
+                return 'background-color: #fed7aa; color: #92400e; font-weight: 600;'
+        except:
+            pass
+    return ''
+
 # ─────────────────────────────────────────────────────────────
 #  MAIN
 # ─────────────────────────────────────────────────────────────
-
+# MAIN - REFINED
+# ─────────────────────────────────────────────────────────────
 def main():
     st.markdown('<div class="main-header"><h1 style="color:white;">🏭 Golden Sample Revalidation Tracker</h1></div>', unsafe_allow_html=True)
    
@@ -562,7 +586,7 @@ def main():
 
     st.markdown("### 📋 Sample Details")
 
-    # Filters + Controls
+    # Filters
     c1, c2, c3, c4, c5, c6 = st.columns([1.4, 1.4, 2, 1, 1, 1])
 
     with c1:
@@ -575,7 +599,7 @@ def main():
     with c4:
         if st.button("📥 Export CSV", use_container_width=True):
             csv = df.to_csv(index=False)
-            st.download_button("Download Report", csv, f"golden_sample_{datetime.now().strftime('%Y%m%d_%H%M')}.csv", "text/csv", key="dl")
+            st.download_button("Download Report", csv, f"golden_sample_{datetime.now().strftime('%Y%m%d_%H%M')}.csv", "text/csv")
     with c5:
         if st.button("📧 Send Alert", use_container_width=True, type="primary"):
             with st.spinner("Sending email..."):
@@ -589,7 +613,7 @@ def main():
             st.cache_data.clear()
             st.rerun()
 
-    # ===================== FILTERING =====================
+    # Filtering
     filtered_df = df.copy()
 
     if status_filter != 'All':
@@ -608,14 +632,12 @@ def main():
     if search_model:
         filtered_df = filtered_df[filtered_df['Model'].str.contains(search_model, case=False, na=False)]
 
-    # ===================== DISPLAY TABLE =====================
+    # Display Table
     if filtered_df.empty:
         st.warning("🔍 No records found matching your filters.")
-        st.info("Try changing the filters or clear the search term.")
     else:
         display_df = filtered_df[['Model', 'Validation Date Display', 'Revalidation Due Display',
                                  'Days Left', 'Staus', 'Incharge', 'Alert Status']].copy()
-        
         display_df = display_df.fillna('-')
         
         def format_days(row):
@@ -629,12 +651,13 @@ def main():
         
         display_df['Days Left'] = display_df.apply(format_days, axis=1)
 
-        # Enhanced Styling
+        # Final Styling
         def highlight_row(row):
             styles = [''] * len(row)
-            if str(row['Staus']).lower() == 'ng':
+            status = str(row['Staus']).lower()
+            if status == 'ng':
                 styles = ['background-color: #fee2e2'] * len(row)
-            elif row['Days Left'] != '-' and 'd' in str(row['Days Left']):
+            elif row['Days Left'] != '-':
                 try:
                     days = int(str(row['Days Left']).replace('d',''))
                     if days < 0:
@@ -645,13 +668,14 @@ def main():
                     pass
             return styles
 
-        styled_df = display_df.style.apply(highlight_row, axis=1)\
-                    .applymap(style_status, subset=['Staus'])\
-                    .applymap(style_days, subset=['Days Left'])
+        styled_df = (display_df.style
+                     .apply(highlight_row, axis=1)
+                     .applymap(style_status, subset=['Staus'])
+                     .applymap(style_days, subset=['Days Left']))
 
         st.dataframe(styled_df, use_container_width=True, height=420, hide_index=True)
 
-    # Email Settings
+    # Settings
     with st.expander("⚙️ Email & Settings"):
         col_set1, col_set2 = st.columns(2)
         with col_set1:
