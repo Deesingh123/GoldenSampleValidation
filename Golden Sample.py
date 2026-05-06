@@ -13,7 +13,7 @@ import json
 warnings.filterwarnings('ignore')
 
 # ========== CONFIGURATION ==========
-CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSG42OXWxsoLV7wNqqDAdryfmDYU4IGBv1gEJm8-8bP_qh6vCe2NWAx7_vM3DYQqxCPFX3jv-TimRgV/pub?output=csv"
+CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSOERBZB4TXUBp_QmForDmyGaMcb8gyRAftJMXqp_ymZusgYs67zF4koOegfsnZcUxpKE8j1yzAWB38/pub?gid=1105229130&single=true&output=csv"
 
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
