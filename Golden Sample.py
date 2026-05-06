@@ -17,13 +17,10 @@ CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSOERBZB4TXUBp_QmForD
 
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
-SENDER_EMAIL = "chauhandeesingh@gmail.com"
-SENDER_PASSWORD = "empxwcwfvmbphvsw"
-
-PRIMARY_RECIPIENT = "emurugesan.padget@dixoninfo.com"
-CC_RECIPIENTS = [
-    "chauhandeesingh@gmail.com",
-]
+SENDER_EMAIL = st.secrets["SENDER_EMAIL"]
+SENDER_PASSWORD = st.secrets["SENDER_PASSWORD"]
+PRIMARY_RECIPIENT = st.secrets["PRIMARY_RECIPIENT"]
+CC_RECIPIENTS = st.secrets["CC_RECIPIENTS"]
 
 # Auto email settings
 AUTO_EMAIL_HOUR = 9
