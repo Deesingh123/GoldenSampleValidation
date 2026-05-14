@@ -243,34 +243,51 @@ def process_data(df):
         return None
     df = df.copy()
     df.columns = df.columns.str.strip()
-
+    
     required_cols = ['Validation Date', 'Staus', 'Model']
     for col in required_cols:
         if col not in df.columns:
             st.error(f"Missing column: {col}")
             return None
 
+    # === STATUS CLEANING (Most Important Fix) ===
+    def clean_status(s):
+        if pd.isna(s) or s == '':
+            return 'Unknown'
+        s = str(s).strip().lower()
+        
+        if 'ok' in s or s == 'good':
+            return 'OK'
+        elif 'ng' in s or 'fail' in s or 'not' in s:
+            return 'NG'
+        elif 'pending' in s or 'validation' in s:
+            return 'Pending'
+        else:
+            return 'Other'
+    
+    df['Staus'] = df['Staus'].apply(clean_status)
+    
     # Parse dates
     df['Validation Date Parsed'] = df['Validation Date'].apply(parse_date_safe)
     df = df.dropna(subset=['Validation Date Parsed'])
-    
+   
     if df.empty:
         return None
-
+    
     validation_dates = pd.Series(df['Validation Date Parsed'])
     revalidation_dates = validation_dates + pd.Timedelta(days=45)
     today = datetime.now().date()
-
+    
     df['Days Left'] = [
         (r.date() - today).days if pd.notna(r) else None for r in revalidation_dates
     ]
     df['Validation Date Display'] = validation_dates.dt.strftime('%d-%m-%Y')
     df['Revalidation Due Display'] = revalidation_dates.dt.strftime('%d-%m-%Y')
 
+    # Alert Status
     def get_alert_status(row):
         d = row['Days Left']
-        s = str(row.get('Staus', '')).lower().strip()
-        
+        s = str(row.get('Staus', '')).lower()
         if pd.isna(d):
             return 'Unknown'
         if s == 'ok':
@@ -282,17 +299,14 @@ def process_data(df):
         if d <= 7:
             return 'Due Soon'
         return 'On Track'
-
-    df['Alert Status'] = df.apply(get_alert_status, axis=1)
     
+    df['Alert Status'] = df.apply(get_alert_status, axis=1)
+   
     # Clean data
     df = df.dropna(subset=['Model', 'Staus', 'Validation Date Display'])
     df = df[df['Model'].astype(str).str.strip() != '']
     df = df[df['Staus'].astype(str).str.strip() != '']
-    
-    # Standardize status
-    df['Staus'] = df['Staus'].astype(str).str.strip().str.capitalize()
-    
+
     return df
 
 
@@ -430,38 +444,38 @@ def check_and_send_auto_email(df):
 def create_status_chart(df):
     if df.empty:
         fig = go.Figure()
-        fig.update_layout(height=240, margin=dict(l=10, r=10, t=30, b=10))
+        fig.update_layout(height=280, margin=dict(l=10, r=10, t=40, b=10))
         return fig
-    
+
     counts = df['Staus'].value_counts()
-    
-    colors = []
-    for status in counts.index:
-        if status.lower() == 'ok':
-            colors.append('#10b981')
-        elif status.lower() == 'pending':
-            colors.append('#f59e0b')
-        elif status.lower() == 'ng':
-            colors.append('#ef4444')
-        else:
-            colors.append('#6b7280')
-    
+
+    colors = {
+        'OK': '#10b981',
+        'Pending': '#f59e0b',
+        'NG': '#ef4444',
+        'Other': '#6b7280'
+    }
+
     fig = go.Figure(data=[go.Pie(
         labels=counts.index.tolist(),
         values=counts.values.tolist(),
-        hole=0.55,
-        marker_colors=colors,
+        hole=0.60,
+        marker_colors=[colors.get(status, '#6b7280') for status in counts.index],
         textinfo='label+percent',
         textposition='outside',
-        textfont=dict(family='Inter', size=10),
-        hoverinfo='label+value'
+        textfont=dict(family='Inter', size=11),
+        hoverinfo='label+value+percent'
     )])
-    
+
     fig.update_layout(
-        title=dict(text="Status Distribution", font=dict(family='Inter', size=12, weight='bold')),
-        height=240,
-        showlegend=False,
-        margin=dict(l=10, r=10, t=30, b=10),
+        title=dict(
+            text="Status Distribution",
+            font=dict(family='Inter', size=14, weight='bold')
+        ),
+        height=280,
+        showlegend=True,
+        legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5),
+        margin=dict(l=20, r=20, t=50, b=80),
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)'
     )
