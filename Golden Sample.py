@@ -344,44 +344,58 @@ def send_email_alert(df, primary_recipient, cc_recipients):
 
 
 def generate_email_html(due_records, overdue_records):
-    headers = "\\n<table>\\n<thead>\\n<tr>" + "".join(f"<th style='padding:8px;background:#667eea;color:white;'>{h}</th>" for h in
-        ["Model", "Validation Date", "Revalidation Due", "Days Left", "Status", "Incharge", "Alert"]) + "</tr>\\n</thead>\\n<tbody>"
-
-    def make_row(row, bg, days_text, badge):
-        return f'<tr style="background-color:{bg};">' + ''.join([
-            f'<td style="padding:6px;"><b>{row.get("Model","")}</b>\\n</td>',
-            f'<td style="padding:6px;">{row.get("Validation Date Display","")}\\n</td>',
-            f'<td style="padding:6px;">{row.get("Revalidation Due Display","")}\\n</td>',
-            f'<td style="padding:6px;color:#dc3545;">{days_text}\\n</td>',
-            f'<td style="padding:6px;"><b>{row.get("Staus","")}</b>\\n</td>',
-            f'<td style="padding:6px;">{row.get("Incharge","")}\\n</td>',
-            f'<td style="padding:6px;color:#dc3545;">{badge}\\n</td>',
-        ]) + '</tr>'
-
-    over_rows = "".join(make_row(r, "#fef3f2", f"{abs(int(r['Days Left']))}d overdue", "🔴 OVERDUE") 
-                        for _, r in overdue_records.iterrows()) if not overdue_records.empty else '<tr><td colspan="7">None</td></tr>'
-    due_rows = "".join(make_row(r, "#fffbeb", f"{int(r['Days Left'])}d", "⚠️ URGENT") 
-                       for _, r in due_records.iterrows()) if not due_records.empty else '<tr><td colspan="7">None</td></tr>'
-
     total = len(due_records) + len(overdue_records)
+    
+    html = f"""
+    <html>
+    <head>
+        <style>
+            body {{ font-family: 'Inter', Arial, sans-serif; margin: 0; padding: 20px; background: #f8fafc; }}
+            .header {{ background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 20px; text-align: center; border-radius: 12px; }}
+            .alert {{ background: #fef3f2; border-left: 5px solid #ef4444; padding: 15px; margin: 15px 0; border-radius: 8px; }}
+            table {{ border-collapse: collapse; width: 100%; margin: 15px 0; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
+            th {{ background: #1e40af; color: white; padding: 12px 8px; text-align: left; }}
+            td {{ padding: 10px 8px; border-bottom: 1px solid #e2e8f0; }}
+            tr:hover {{ background: #f1f5f9; }}
+            .overdue {{ background: #fee2e2 !important; }}
+            .urgent {{ background: #fef3c7 !important; }}
+            .footer {{ text-align: center; margin-top: 20px; color: #64748b; font-size: 12px; }}
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h2>Golden Sample Revalidation Tracker</h2>
+            <p>🚨 Urgent Action Required - {total} Sample(s)</p>
+        </div>
+        
+        <div class="alert">
+            <strong>⚠️ ALERT SUMMARY:</strong><br>
+            🔴 {len(overdue_records)} Overdue Samples<br>
+            ⚡ {len(due_records)} Samples Due Within 3 Days
+        </div>
+    """
 
-    return f"""<html>
-<head><style>
-    body{{font-family:'Inter',sans-serif;margin:0;padding:15px;background:#f8fafc;}}
-    .header{{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:12px;text-align:center;border-radius:10px;}}
-    .alert{{background:#fef3f2;border-left:3px solid #dc2626;padding:8px;margin:10px 0;border-radius:6px;font-size:12px;}}
-    table{{border-collapse:collapse;width:100%;margin:10px 0;border-radius:8px;overflow:hidden;}}
-    th{{background:#667eea;color:white;padding:8px;}}
-    td{{padding:6px;border-bottom:1px solid #e2e8f0;font-size:12px;}}
-    .footer{{margin-top:12px;padding:8px;background:#f1f5f9;text-align:center;border-radius:6px;font-size:10px;}}
-</style></head>
-<body>
-    <div class="header"><h3>Golden Sample Tracker</h3><p>🚨 Urgent Action Required</p></div>
-    <div class="alert"><strong>⚠️ Alert:</strong> {total} sample(s) need attention!<br>• {len(overdue_records)} Overdue • {len(due_records)} Due within 3 days</div>
-    <h3>🔴 Overdue Samples</h3>{headers}{over_rows}</tbody></table>
-    <h3>⚠️ Samples Due Within 3 Days</h3>{headers}{due_rows}</tbody></table>
-    <div class="footer"><p>Generated: {datetime.now().strftime('%d-%m-%Y %H:%M:%S')}</p></div>
-</body></html>"""
+    # Overdue Section
+    if not overdue_records.empty:
+        html += "<h3 style='color:#ef4444;'>🔴 Overdue Samples</h3>"
+        html += overdue_records[['Model', 'Validation Date Display', 'Revalidation Due Display', 
+                               'Days Left', 'Staus', 'Incharge']].to_html(index=False, escape=False, classes="table")
+    
+    # Due Soon Section
+    if not due_records.empty:
+        html += "<h3 style='color:#f59e0b;'>⚠️ Samples Due Within 3 Days</h3>"
+        html += due_records[['Model', 'Validation Date Display', 'Revalidation Due Display', 
+                           'Days Left', 'Staus', 'Incharge']].to_html(index=False, escape=False, classes="table")
+
+    html += f"""
+        <div class="footer">
+            Generated on: {datetime.now().strftime('%d-%m-%Y %H:%M:%S')} | 
+            Revalidation Cycle: 45 Days
+        </div>
+    </body>
+    </html>
+    """
+    return html
 
 
 def check_and_send_auto_email(df):
@@ -570,6 +584,8 @@ def main():
     </div>
     """
 
+    st.caption(f"**Last Updated:** {datetime.now().strftime('%d-%m-%Y %I:%M %p')}")
+
     with col1: st.markdown(metric_style.format(total, "TOTAL"), unsafe_allow_html=True)
     with col2: st.markdown(metric_style.format(ok_count, "✅ OK"), unsafe_allow_html=True)
     with col3: st.markdown(metric_style.format(pending_count, "⏳ PENDING"), unsafe_allow_html=True)
@@ -609,9 +625,10 @@ def main():
                 else:
                     st.error(msg)
     with c6:
-        if st.button("🔄 Refresh", use_container_width=True):
-            st.cache_data.clear()
-            st.rerun()
+        if st.button("Clear Filters"):
+           st.session_state.status_filter = 'All'
+           st.session_state.urgency_filter = 'All'
+           st.rerun()
 
     # Filtering
     filtered_df = df.copy()
@@ -632,7 +649,7 @@ def main():
     if search_model:
         filtered_df = filtered_df[filtered_df['Model'].str.contains(search_model, case=False, na=False)]
 
-    # Display Table
+        # Display Table
     if filtered_df.empty:
         st.warning("🔍 No records found matching your filters.")
     else:
@@ -650,16 +667,18 @@ def main():
                 return '-'
         
         display_df['Days Left'] = display_df.apply(format_days, axis=1)
-
-        # Final Styling
+        
+        # Better Styling
         def highlight_row(row):
             styles = [''] * len(row)
             status = str(row['Staus']).lower()
-            if status == 'ng':
-                styles = ['background-color: #fee2e2'] * len(row)
-            elif row['Days Left'] != '-':
+            days_val = str(row['Days Left'])
+            
+            if status == 'ng' or (days_val != '-' and '-' in days_val and 'overdue' in days_val.lower()):
+                styles = ['background-color: #fee2e2; color: #991b1b'] * len(row)
+            elif days_val != '-' and 'd' in days_val:
                 try:
-                    days = int(str(row['Days Left']).replace('d',''))
+                    days = int(days_val.replace('d',''))
                     if days < 0:
                         styles = ['background-color: #fee2e2'] * len(row)
                     elif days <= 3:
@@ -671,9 +690,9 @@ def main():
         styled_df = (display_df.style
                      .apply(highlight_row, axis=1)
                      .applymap(style_status, subset=['Staus'])
-                     .applymap(style_days, subset=['Days Left']))
-
-        st.dataframe(styled_df, use_container_width=True, height=420, hide_index=True)
+                     .set_properties(**{'font-size': '14px'}))
+        
+        st.dataframe(styled_df, use_container_width=True, height=500, hide_index=True)
 
     # Settings
     with st.expander("⚙️ Email & Settings"):
